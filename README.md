@@ -21,24 +21,18 @@ graph TD
 
     %% Backend Layer
     subgraph Backend [FastAPI Server]
-        Main[app.main]
-        AuthRouter[app.routes.auth]
-        ChatRouter[app.routes.chat]
-        IndexRouter[app.routes.index]
+        Main[backend.main]
+        RAG[backend.rag]
+        Embed[backend.embeddings]
+        LLM[backend.llm]
+        Storage[backend.storage]
+        Retrieval[backend.retrieval]
         
-        RAG[app.services.rag]
-        Embed[app.services.embedding]
-        LLM[app.services.llm]
-        Utils[app.utils.helpers]
-        
-        Main --> AuthRouter
-        Main --> ChatRouter
-        Main --> IndexRouter
-        
-        ChatRouter --> RAG
+        Main --> RAG
         RAG --> Embed
         RAG --> LLM
-        RAG --> Utils
+        RAG --> Storage
+        RAG --> Retrieval
     end
 
     %% Storage Layer
@@ -49,10 +43,10 @@ graph TD
 
     %% Data Connections
     UI <-->|HTTP REST + Bearer Token| Main
-    IndexRouter <-->|Parse / Read| DF
-    AuthRouter <-->|Write / Read Users| DB
-    ChatRouter <-->|Read Sessions & History| DB
-    IndexRouter <-->|Index Vectors & Chunks| DB
+    Main <-->|Parse / Read| DF
+    Main <-->|Write / Read Users| DB
+    Main <-->|Read Sessions & History| DB
+    Main <-->|Index Vectors & Chunks| DB
     RAG <-->|Fetch Top-K Chunks| DB
 ```
 
@@ -63,7 +57,7 @@ graph TD
 ### 1. Document Indexing Flow (Offline / Admin Startup)
 1. **Load**: The server reads the structured `docs.json` knowledge base containing company policies.
 2. **Chunk**: Documents exceeding length limitations are divided into overlapping chunks (~120-150 words, with a 25-word sliding window overlap) using a deterministic token-approximating chunker. This retains boundary context.
-3. **Embed**: Chunks are processed via the active embedding provider (Gemini `text-embedding-004` or OpenAI `text-embedding-3-small`). If running offline, a deterministic hash-based vectorizer acts as a local fallback.
+3. **Embed**: Chunks are processed via the active embedding provider (Gemini `models/gemini-embedding-001`). If running offline, a deterministic hash-based vectorizer acts as a local fallback.
 4. **Store**: Vector coordinates are serialized as JSON arrays and saved to the SQLite `document_chunks` table, alongside parent metadata (title, token count, text content).
 
 ### 2. Retrieval and Querying Flow (User Request)
@@ -76,7 +70,7 @@ graph TD
 6. **Grounding Evaluation**:
    - **If no chunks pass threshold**: The LLM is bypassed, and a safe grounded response is immediately returned: *"I could not find enough information in the knowledge base to answer this question."*
    - **If chunks pass**: The Top-3 matching chunks are sorted and formatted into a structured RAG prompt.
-7. **LLM Invocation**: The grounded prompt is sent to the LLM (Gemini `gemini-1.5-flash` or OpenAI `gpt-3.5-turbo`) at a low temperature of `0.2` to eliminate hallucinations.
+7. **LLM Invocation**: The grounded prompt is sent to the LLM (Gemini `models/gemini-2.5-flash`) at a low temperature of `0.2` to eliminate hallucinations.
 8. **Logging & Return**: Tokens, similarity scores, and sources are updated in the SQLite database and returned to the UI dashboard.
 
 ---
@@ -86,41 +80,25 @@ graph TD
 ```
 project/ (Workspace Root)
 │
-├── app/
-│   ├── routes/
-│   │   ├── auth.py          # /api/auth/register & /api/auth/login JWT endpoints
-│   │   ├── chat.py          # /api/chat core endpoint & session logs
-│   │   └── index.py         # Administrative endpoints & document cataloging
-│   │
-│   ├── services/
-│   │   ├── embedding.py     # Embedding client (Gemini / OpenAI / Offline Mock)
-│   │   ├── llm.py           # LLM caller (Gemini / OpenAI / Offline Mock)
-│   │   └── rag.py           # Core RAG coordinator pipeline
-│   │
-│   ├── models/
-│   │   └── schemas.py       # Pydantic schema validation structures
-│   │
-│   ├── vectorstore/
-│   │   └── database.py      # SQLite manager & numpy cosine similarity computations
-│   │
-│   ├── prompts/
-│   │   └── templates.py     # Grounding context instructions
-│   │
-│   ├── utils/
-│   │   └── helpers.py       # Cryptographic PBKDF2 hashing & text chunking
-│   │
-│   └── main.py              # FastAPI app instance, lifespans, and error interceptors
+├── backend/
+│   ├── main.py              # FastAPI entrypoint, schemas, cryptography, & static mounts
+│   ├── rag.py               # Core RAG coordinator and prompt construction pipeline
+│   ├── embeddings.py        # Gemini embedding client (models/gemini-embedding-001)
+│   ├── llm.py               # Gemini LLM client (models/gemini-2.5-flash)
+│   ├── storage.py           # SQLite database manager & CRUD operations
+│   ├── retrieval.py         # Numpy-based cosine similarity vector search
+│   └── docs.json            # Knowledge base containing 7 detailed portal guidelines
 │
 ├── frontend/
 │   ├── index.html           # Authentication views & glassmorphic workspace layout
-│   ├── styles.css           # Modern, responsive stylesheet (dark-violet palette)
-│   └── app.js               # Dashboard controller, API fetches, and RAG inspector
+│   ├── style.css            # Modern, responsive stylesheet (dark-violet palette)
+│   └── script.js            # Dashboard controller, API fetches, and RAG inspector
 │
-├── docs.json                # Knowledge base containing 7 detailed portal guidelines
+├── .gitignore               # Excludes sensitive files (e.g. .env, database files)
 ├── requirements.txt         # Pinned python library requirements
 ├── verify_backend.py        # Independent backend module testing script
 ├── .env.example             # Configuration instructions
-└── README.md                # Submission documentation
+└── README.md                # Project documentation
 ```
 
 ---
@@ -171,7 +149,7 @@ python verify_backend.py
 ### 4. Running the Application
 Start the FastAPI server using Uvicorn:
 ```bash
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 ```
 Once launched:
 - Open your browser and navigate to: **[http://127.0.0.1:8000](http://127.0.0.1:8000)**
