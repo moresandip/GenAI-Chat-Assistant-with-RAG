@@ -592,6 +592,14 @@ def reload_knowledge_base(
 def get_index():
     return FileResponse("frontend/index.html")
 
+@app.get("/style.css")
+def get_style():
+    return FileResponse("frontend/style.css")
+
+@app.get("/script.js")
+def get_script():
+    return FileResponse("frontend/script.js")
+
 # Mount static files folder to serve styles and scripts
 if not os.path.exists("frontend"):
     os.makedirs("frontend")
