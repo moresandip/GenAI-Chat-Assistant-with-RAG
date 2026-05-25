@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GenAI Chat Assistant with RAG</title>
+    <!-- Google Fonts Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/frontend/style.css">
+</head>
+<body>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- MAIN CONTAINER -->
+    <div id="app-root" class="app-root">
+
+        <!-- 1. AUTH PANEL (Login / Register Screen) -->
+        <div id="auth-screen" class="auth-screen">
+            <div class="auth-card">
+                <div class="auth-logo">
+                    <div class="logo-orb"></div>
+                    <h2>GenAI Chat Assistant with RAG</h2>
+                    <p>Internal RAG Support System</p>
+                </div>
+                
+                <div class="auth-tabs">
+                    <button id="tab-login" class="auth-tab active" onclick="switchAuthTab('login')">Sign In</button>
+                    <button id="tab-register" class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="login-form" class="auth-form" onsubmit="handleAuthSubmit(event, 'login')">
+                    <div class="input-group">
+                        <label for="login-username">Username</label>
+                        <input type="text" id="login-username" required placeholder="Enter username (alphanumeric)" autocomplete="username">
+                    </div>
+                    <div class="input-group">
+                        <label for="login-password">Password</label>
+                        <input type="password" id="login-password" required placeholder="Enter password (min 6 chars)" autocomplete="current-password">
+                    </div>
+                    <button type="submit" class="auth-btn">
+                        <span>Sign In</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+                    </button>
+                </form>
+
+                <!-- Register Form -->
+                <form id="register-form" class="auth-form hidden" onsubmit="handleAuthSubmit(event, 'register')">
+                    <div class="input-group">
+                        <label for="reg-username">Username</label>
+                        <input type="text" id="reg-username" required placeholder="Choose a username" autocomplete="username">
+                    </div>
+                    <div class="input-group">
+                        <label for="reg-password">Password</label>
+                        <input type="password" id="reg-password" required placeholder="Choose a password (min 6 chars)" autocomplete="new-password">
+                    </div>
+                    <button type="submit" class="auth-btn register-btn">
+                        <span>Create Account</span>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M16 11h6"/></svg>
+                    </button>
+                </form>
+                
+                <div class="auth-footer">
+                    <p>Production-Grade Retrieval-Augmented Generation Portal</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. DASHBOARD PANEL (Authenticated RAG Console) -->
+        <div id="dashboard-screen" class="dashboard-screen hidden">
+            
+            <!-- LEFT PANEL: NAVIGATION & KNOWLEDGE BASE -->
+            <aside class="sidebar">
+                <div class="sidebar-header">
+                    <div class="brand">
+                        <div class="brand-dot"></div>
+                        <h3>GenAI Chat Assistant with RAG</h3>
+                    </div>
+                    <button id="new-chat-btn" class="new-chat-btn" onclick="startNewChat()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        <span>New Chat</span>
+                    </button>
+                </div>
+
+                <!-- Session History Section -->
+                <div class="sidebar-section">
+                    <div class="section-label">Chat History</div>
+                    <div id="sessions-list" class="sessions-list">
+                        <!-- Populated dynamically -->
+                        <div class="sessions-loading">Loading sessions...</div>
+                    </div>
+                </div>
+
+                <!-- Active Documents Section -->
+                <div class="sidebar-section kb-section">
+                    <div class="section-label-container">
+                        <span class="section-label">Active Knowledge Base</span>
+                        <button class="reload-db-btn" title="Reload docs.json knowledge base" onclick="reloadKnowledgeBase()">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+                        </button>
+                    </div>
+                    <div id="documents-list" class="documents-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- User Profile / Logout Section -->
+                <div class="user-profile">
+                    <div class="user-avatar">
+                        <span id="user-avatar-initials">U</span>
+                    </div>
+                    <div class="user-info">
+                        <span id="username-display" class="username">username</span>
+                        <span class="role-tag">Researcher</span>
+                    </div>
+                    <button class="logout-btn" title="Logout" onclick="handleLogout()">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+                    </button>
+                </div>
+            </aside>
+
+            <!-- CENTER PANEL: CHAT INTERFACE -->
+            <main class="chat-container">
+                <header class="chat-header">
+                    <div class="chat-title-info">
+                        <h4 id="active-chat-title">New Conversation</h4>
+                        <p id="active-chat-status">Interactive Vector Grounded Assistant</p>
+                    </div>
+                    <div class="chat-header-actions">
+                        <span class="badge online">Secure Session</span>
+                    </div>
+                </header>
+
+                <!-- Messages Feed -->
+                <div id="chat-messages" class="chat-messages">
+                    <div class="welcome-card">
+                        <div class="welcome-icon">⚡</div>
+                        <h3>Welcome to GenAI Chat Assistant with RAG Support Portal</h3>
+                        <p>Ask technical questions about our GPU resources, data structures, GitLab container integrations, or Triton model serving limits. Your answers are mathematically grounded in our verified documents.</p>
+                        
+                        <div class="sample-prompts">
+                            <button class="sample-prompt-btn" onclick="useSamplePrompt('How do I allocate GPU resources for training?')">
+                                "How do I allocate GPU resources for training?"
+                            </button>
+                            <button class="sample-prompt-btn" onclick="useSamplePrompt('What are the MFA and password rules?')">
+                                "What are the MFA and password rules?"
+                            </button>
+                            <button class="sample-prompt-btn" onclick="useSamplePrompt('How to deploy models on Triton?')">
+                                "How to deploy models on Triton?"
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Message input area -->
+                <div class="chat-input-area">
+                    <!-- Typing / Shimmer Indicator -->
+                    <div id="typing-indicator" class="typing-indicator hidden">
+                        <div class="shimmer-dots">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <span id="typing-status-text">Vector similarity retrieval in progress...</span>
+                    </div>
+
+                    <form id="chat-form" class="chat-form" onsubmit="handleSendMessage(event)">
+                        <input type="text" id="chat-input" required placeholder="Type your query here... (e.g. How does Ceph storage work?)" autocomplete="off">
+                        <button type="submit" id="send-btn" class="send-btn">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                        </button>
+                    </form>
+                </div>
+            </main>
+
+            <!-- RIGHT PANEL: RAG METADATA INSPECTOR -->
+            <section class="metadata-inspector">
+                <header class="inspector-header">
+                    <h4>RAG Debug Inspector</h4>
+                    <p>Mathematical Similarity Tracing</p>
+                </header>
+                
+                <div class="inspector-body">
+                    <!-- Metrics Summary Grid -->
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <span class="metric-label">Retrieved Chunks</span>
+                            <span id="metric-chunks-count" class="metric-val">0</span>
+                        </div>
+                        <div class="metric-card">
+                            <span class="metric-label">Tokens Logged</span>
+                            <span id="metric-tokens-used" class="metric-val">0</span>
+                        </div>
+                    </div>
+
+                    <!-- Similarity Meters -->
+                    <div class="inspector-section">
+                        <div class="inspector-section-label">Vector Similarity Scores</div>
+                        <div id="similarity-scores-container" class="scores-container">
+                            <div class="inspector-placeholder-text">Ask a question to view matching scores.</div>
+                        </div>
+                    </div>
+
+                    <!-- Source Text Snippets -->
+                    <div class="inspector-section">
+                        <div class="inspector-section-label">Source Document Context Chunks</div>
+                        <div id="source-chunks-container" class="chunks-container">
+                            <div class="inspector-placeholder-text">Retrieved text chunks will render here.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+    </div>
+
+    <!-- Markdown Parser Helper (Fallback standard formatting for assistant replies) -->
+    <script>
+        // Simple client-side markdown renderer
+        function parseMarkdown(text) {
+            if (!text) return "";
+            let html = text
+                // Escape HTML tags to prevent XSS
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                // Bold
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                // Code Blocks
+                .replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>')
+                // Inline Code
+                .replace(/`(.*?)`/g, '<code>$1</code>')
+                // Bullet points
+                .replace(/^\s*-\s+(.*)$/gm, '<li>$1</li>')
+                // Line breaks
+                .replace(/\n/g, '<br>');
+                
+            // Wrap loose list items in a ul container
+            html = html.replace(/(<li>.*<\/li>)/gs, '<ul>$1<\/ul>');
+            return html;
+        }
+    </script>
+    <script src="/frontend/script.js"></script>
+</body>
+</html>
